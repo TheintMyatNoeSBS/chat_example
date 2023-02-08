@@ -1,73 +1,65 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
+import 'provider/auth_provider.dart';
+import 'provider/chat_provider.dart';
+import 'provider/home_provider.dart';
+import 'provider/profile_provider.dart';
+import 'splash.dart';
+import 'util/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const MyApp());
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+
+  runApp(MyApp(
+    prefs: prefs,
+  ));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final SharedPreferences prefs;
+  final FirebaseFirestore firebaseFirestore = FirebaseFirestore.instance;
+  final FirebaseStorage firebaseStorage = FirebaseStorage.instance;
+
+  MyApp({Key? key, required this.prefs}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>(
+            create: (_) => AuthProvider(
+                firebaseFirestore: firebaseFirestore,
+                prefs: prefs,
+                googleSignIn: GoogleSignIn(),
+                firebaseAuth: FirebaseAuth.instance)),
+        Provider<ProfileProvider>(
+            create: (_) => ProfileProvider(
+                prefs: prefs,
+                firebaseFirestore: firebaseFirestore,
+                firebaseStorage: firebaseStorage)),
+        Provider<HomeProvider>(
+            create: (_) => HomeProvider(firebaseFirestore: firebaseFirestore)),
+        Provider<ChatProvider>(
+            create: (_) => ChatProvider(
+                prefs: prefs,
+                firebaseStorage: firebaseStorage,
+                firebaseFirestore: firebaseFirestore))
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Smart Talk',
+        theme: appTheme,
+        home: const SplashPage(),
       ),
     );
   }
