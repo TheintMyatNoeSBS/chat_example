@@ -18,8 +18,8 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  TextEditingController? displayNameController;
-  TextEditingController? aboutMeController;
+  TextEditingController displayNameController = TextEditingController();
+  TextEditingController aboutMeController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
   late String currentUserId;
@@ -40,6 +40,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     profileProvider = context.read<ProfileProvider>();
+    dialCodeDigits = "+95";
     readLocal();
   }
 
@@ -53,9 +54,11 @@ class _ProfilePageState extends State<ProfilePage> {
       phoneNumber =
           profileProvider.getPrefs(FirestoreConstants.phoneNumber) ?? "";
       aboutMe = profileProvider.getPrefs(FirestoreConstants.aboutMe) ?? "";
+
+      displayNameController.text = displayName;
+      aboutMeController.text = aboutMe;
+      _phoneController.text = phoneNumber;
     });
-    displayNameController = TextEditingController(text: displayName);
-    aboutMeController = TextEditingController(text: aboutMe);
   }
 
   Future getImage() async {
@@ -283,10 +286,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             dialCodeDigits = country.dialCode!;
                           });
                         },
-                        initialSelection: 'IN',
+                        initialSelection: 'MM',
                         showCountryOnly: false,
                         showOnlyCountryWhenClosed: false,
-                        favorite: const ["+1", "US", "+91", "IN"],
+                        favorite: const ["+1", "US", "+95", "MM"],
                       ),
                     ),
                     vertical15,

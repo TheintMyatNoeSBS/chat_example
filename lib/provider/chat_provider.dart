@@ -41,6 +41,14 @@ class ChatProvider {
         .snapshots();
   }
 
+  Stream getChatMessage1(String groupChatId) {
+    return firebaseFirestore
+        .collection(FirestoreConstants.pathMessageCollection)
+        .doc(groupChatId)
+        .snapshots()
+        .distinct();
+  }
+
   void sendChatMessage(String content, int type, String groupChatId,
       String currentUserId, String peerId) {
     DocumentReference documentReference = firebaseFirestore

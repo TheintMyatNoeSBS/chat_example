@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:chat_example/full_image_view.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,6 +45,7 @@ class _ChatPageState extends State<ChatPage> {
 
   File? imageFile;
   bool isLoading = false;
+  bool isTyping = false;
   bool isShowSticker = false;
   String imageUrl = '';
 
@@ -223,9 +225,128 @@ class _ChatPageState extends State<ChatPage> {
           child: Column(
             children: [
               buildListMessage(),
+              isShowSticker ? buildSticker() : const SizedBox.shrink(),
               buildMessageInput(),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildSticker() {
+    return Expanded(
+      child: Container(
+        decoration: const BoxDecoration(
+            border: Border(
+                top: BorderSide(color: AppColors.greyColor2, width: 0.5)),
+            color: Colors.white),
+        padding: const EdgeInsets.all(5),
+        height: 180,
+        child: Column(
+          // ignore: sort_child_properties_last
+          children: <Widget>[
+            Row(
+              // ignore: sort_child_properties_last
+              children: <Widget>[
+                TextButton(
+                  onPressed: () => onSendMessage('mimi1', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi1.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => onSendMessage('mimi2', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi2.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => onSendMessage('mimi3', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi3.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              ],
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            ),
+            Row(
+              // ignore: sort_child_properties_last
+              children: <Widget>[
+                TextButton(
+                  onPressed: () => onSendMessage('mimi4', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi4.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => onSendMessage('mimi5', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi5.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => onSendMessage('mimi6', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi6.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              ],
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            ),
+            Row(
+              // ignore: sort_child_properties_last
+              children: <Widget>[
+                TextButton(
+                  onPressed: () => onSendMessage('mimi7', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi7.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => onSendMessage('mimi8', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi8.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => onSendMessage('mimi9', MessageType.sticker),
+                  child: Image.asset(
+                    'assets/images/mimi9.gif',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              ],
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            )
+          ],
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         ),
       ),
     );
@@ -259,6 +380,11 @@ class _ChatPageState extends State<ChatPage> {
             keyboardType: TextInputType.text,
             textCapitalization: TextCapitalization.sentences,
             controller: textEditingController,
+            onChanged: (value) {
+              setState(() {
+                isTyping = value.isEmpty ? false : true;
+              });
+            },
             decoration:
                 kTextInputDecoration.copyWith(hintText: 'write here...'),
             onSubmitted: (value) {
@@ -266,17 +392,24 @@ class _ChatPageState extends State<ChatPage> {
             },
           )),
           Container(
-            margin: const EdgeInsets.only(left: Sizes.dimen_4),
-            decoration: BoxDecoration(
-              color: AppColors.burgundy,
-              borderRadius: BorderRadius.circular(Sizes.dimen_30),
+            margin: const EdgeInsets.only(right: Sizes.dimen_4),
+            child: IconButton(
+              onPressed: getSticker,
+              icon: const Icon(
+                Icons.emoji_emotions,
+                size: Sizes.dimen_24,
+              ),
+              color: AppColors.greyColor,
             ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(left: Sizes.dimen_4),
             child: IconButton(
               onPressed: () {
                 onSendMessage(textEditingController.text, MessageType.text);
               },
               icon: const Icon(Icons.send_rounded),
-              color: AppColors.white,
+              color: !isTyping ? AppColors.greyColor : AppColors.spaceLight,
             ),
           ),
         ],
@@ -303,13 +436,46 @@ class _ChatPageState extends State<ChatPage> {
                         margin: const EdgeInsets.only(right: Sizes.dimen_10),
                       )
                     : chatMessages.type == MessageType.image
-                        ? Container(
-                            margin: const EdgeInsets.only(
-                                right: Sizes.dimen_10, top: Sizes.dimen_10),
-                            child: chatImage(
-                                imageSrc: chatMessages.content, onTap: () {}),
+                        ? InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FullImageView(
+                                    url: chatMessages.content,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(
+                                  right: Sizes.dimen_10, top: Sizes.dimen_10),
+                              child: chatImage(
+                                  imageSrc: chatMessages.content,
+                                  onTap: () {
+                                    {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => FullImageView(
+                                            url: chatMessages.content,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }),
+                            ),
                           )
-                        : const SizedBox.shrink(),
+                        : Container(
+                            margin:
+                                const EdgeInsets.only(bottom: 10, right: 10),
+                            child: Image.asset(
+                              'assets/images/${chatMessages.content}.gif',
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                 isMessageSent(index)
                     ? Container(
                         clipBehavior: Clip.hardEdge,
@@ -427,13 +593,46 @@ class _ChatPageState extends State<ChatPage> {
                         margin: const EdgeInsets.only(left: Sizes.dimen_10),
                       )
                     : chatMessages.type == MessageType.image
-                        ? Container(
-                            margin: const EdgeInsets.only(
-                                left: Sizes.dimen_10, top: Sizes.dimen_10),
-                            child: chatImage(
-                                imageSrc: chatMessages.content, onTap: () {}),
+                        ? InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FullImageView(
+                                    url: chatMessages.content,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(
+                                  left: Sizes.dimen_10, top: Sizes.dimen_10),
+                              child: chatImage(
+                                  imageSrc: chatMessages.content,
+                                  onTap: () {
+                                    {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => FullImageView(
+                                            url: chatMessages.content,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }),
+                            ),
                           )
-                        : const SizedBox.shrink(),
+                        : Container(
+                            margin:
+                                const EdgeInsets.only(bottom: 10, right: 10),
+                            child: Image.asset(
+                              'assets/images/${chatMessages.content}.gif',
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
               ],
             ),
             isMessageReceived(index)

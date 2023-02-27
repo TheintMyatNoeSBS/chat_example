@@ -3,15 +3,20 @@ import 'dart:io';
 import 'package:chat_example/provider/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 
 import 'chat_page.dart';
 import 'core/feat_core.dart';
 import 'login.dart';
+import 'model/chat_message.dart';
 import 'model/chat_user.dart';
 import 'profile.dart';
+import 'provider/chat_provider.dart';
 import 'provider/home_provider.dart';
 import 'util/deboucer.dart';
 import 'util/keyboard_util.dart';
@@ -26,10 +31,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final GoogleSignIn googleSignIn = GoogleSignIn();
   final ScrollController scrollController = ScrollController();
+  final FirebaseMessaging firebaseMessaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   int _limit = 20;
   final int _limitIncrement = 20;
   String _textSearch = "";
+  String groupChatId = "";
   bool isLoading = false;
 
   late AuthProvider authProvider;
@@ -143,6 +152,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     authProvider = context.read<AuthProvider>();
     homeProvider = context.read<HomeProvider>();
+    chatProvider = context.read<ChatProvider>();
     if (authProvider.getFirebaseUserId()?.isNotEmpty == true) {
       currentUserId = authProvider.getFirebaseUserId()!;
     } else {
@@ -150,8 +160,71 @@ class _HomePageState extends State<HomePage> {
           MaterialPageRoute(builder: (context) => const LoginPage()),
           (Route<dynamic> route) => false);
     }
-
+    registerNotification();
+    configLocalNotification();
     scrollController.addListener(scrollListener);
+  }
+
+  void registerNotification() {
+    firebaseMessaging.requestPermission();
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('onMessage: $message');
+      if (message.notification != null) {
+        showNotification(message.notification!);
+      }
+      return;
+    });
+
+    firebaseMessaging.getToken().then((token) {
+      print('push token: $token');
+      if (token != null) {
+        homeProvider.updateFirestoreData(FirestoreConstants.pathUserCollection,
+            currentUserId, {'pushToken': token});
+      }
+    }).catchError((err) {
+      Fluttertoast.showToast(msg: err.message.toString());
+    });
+  }
+
+  void configLocalNotification() {
+    AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('app_icon');
+    IOSInitializationSettings initializationSettingsIOS =
+        IOSInitializationSettings();
+    InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid, iOS: initializationSettingsIOS);
+    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  void showNotification(RemoteNotification remoteNotification) async {
+    AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      Platform.isAndroid
+          ? 'com.example.chat_example'
+          : 'com.example.chat_example',
+      'Flutter chat demo',
+      "",
+      playSound: true,
+      enableVibration: true,
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    IOSNotificationDetails iOSPlatformChannelSpecifics =
+        IOSNotificationDetails();
+    NotificationDetails platformChannelSpecifics = NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iOSPlatformChannelSpecifics);
+
+    print(remoteNotification);
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      remoteNotification.title,
+      remoteNotification.body,
+      platformChannelSpecifics,
+      payload: null,
+    );
   }
 
   @override
@@ -228,6 +301,7 @@ class _HomePageState extends State<HomePage> {
     return Container(
       margin: const EdgeInsets.all(Sizes.dimen_10),
       height: Sizes.dimen_50,
+      // ignore: sort_child_properties_last
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -298,69 +372,88 @@ class _HomePageState extends State<HomePage> {
     final firebaseAuth = FirebaseAuth.instance;
     if (documentSnapshot != null) {
       ChatUser userChat = ChatUser.fromDocument(documentSnapshot);
+      // readLocal(userChat.id);
       if (userChat.id == currentUserId) {
         return const SizedBox.shrink();
       } else {
         return TextButton(
-          onPressed: () {
-            if (KeyboardUtils.isKeyboardShowing()) {
-              KeyboardUtils.closeKeyboard(context);
-            }
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => ChatPage(
-                          peerId: userChat.id,
-                          peerAvatar: userChat.photoUrl,
-                          peerNickname: userChat.displayName,
-                          userAvatar: firebaseAuth.currentUser!.photoURL!,
-                        )));
-          },
-          child: ListTile(
-            leading: userChat.photoUrl.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(Sizes.dimen_30),
-                    child: Image.network(
-                      userChat.photoUrl,
-                      fit: BoxFit.cover,
-                      width: 50,
-                      height: 50,
-                      loadingBuilder: (BuildContext ctx, Widget child,
-                          ImageChunkEvent? loadingProgress) {
-                        if (loadingProgress == null) {
-                          return child;
-                        } else {
-                          return SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: CircularProgressIndicator(
-                                color: Colors.grey,
-                                value: loadingProgress.expectedTotalBytes !=
-                                        null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null),
-                          );
-                        }
-                      },
-                      errorBuilder: (context, object, stackTrace) {
-                        return const Icon(Icons.account_circle, size: 50);
-                      },
+            onPressed: () {
+              if (KeyboardUtils.isKeyboardShowing()) {
+                KeyboardUtils.closeKeyboard(context);
+              }
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => ChatPage(
+                            peerId: userChat.id,
+                            peerAvatar: userChat.photoUrl,
+                            peerNickname: userChat.displayName,
+                            userAvatar: firebaseAuth.currentUser!.photoURL!,
+                          )));
+            },
+            child: ListTile(
+              leading: userChat.photoUrl.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(Sizes.dimen_30),
+                      child: Image.network(
+                        userChat.photoUrl,
+                        fit: BoxFit.cover,
+                        width: 50,
+                        height: 50,
+                        // loadingBuilder: (BuildContext ctx, Widget child,
+                        //     ImageChunkEvent? loadingProgress) {
+                        //   if (loadingProgress == null) {
+                        //     return child;
+                        //   } else {
+                        //     return SizedBox(
+                        //       width: 50,
+                        //       height: 50,
+                        //       child: CircularProgressIndicator(
+                        //           color: Colors.grey,
+                        //           value: loadingProgress.expectedTotalBytes !=
+                        //                   null
+                        //               ? loadingProgress.cumulativeBytesLoaded /
+                        //                   loadingProgress.expectedTotalBytes!
+                        //               : null),
+                        //     );
+                        //   }
+                        // },
+                        errorBuilder: (context, object, stackTrace) {
+                          return const Icon(Icons.account_circle, size: 50);
+                        },
+                      ),
+                    )
+                  : const Icon(
+                      Icons.account_circle,
+                      size: 50,
                     ),
-                  )
-                : const Icon(
-                    Icons.account_circle,
-                    size: 50,
-                  ),
-            title: Text(
-              userChat.displayName,
-              style: const TextStyle(color: Colors.black),
-            ),
-          ),
-        );
+              title: Text(
+                userChat.displayName,
+                style: const TextStyle(color: Colors.black),
+              ),
+            ));
       }
     } else {
       return const SizedBox.shrink();
     }
   }
+
+  void readLocal(String userID) {
+    if (authProvider.getFirebaseUserId()?.isNotEmpty == true) {
+      currentUserId = authProvider.getFirebaseUserId()!;
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          (Route<dynamic> route) => false);
+    }
+    if (currentUserId.compareTo(userID) > 0) {
+      groupChatId = '$currentUserId - $userID';
+    } else {
+      groupChatId = '$userID - $currentUserId';
+    }
+    chatProvider.updateFirestoreData(FirestoreConstants.pathUserCollection,
+        currentUserId, {FirestoreConstants.chattingWith: userID});
+  }
+
+  late ChatProvider chatProvider;
 }
